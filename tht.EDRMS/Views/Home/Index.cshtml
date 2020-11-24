@@ -1,0 +1,51 @@
+﻿@model PostModel
+@{
+    ViewData["Title"] = "Home Page";
+
+}
+ 
+<div class="row mb-3">
+    <div class="col-sm-6">
+        @using (Html.BeginForm("Index", "Home", FormMethod.Post, new { enctype = "multipart/form-data" }))
+        {
+            <div class="form-group">
+                <label for="businessArea">Business Area</label>
+                @Html.DropDownListFor(m => m.BusinessArea, new SelectList(ViewBag.BusinessAreas, "Value", "Text"), new { @class = "form-control" })
+            </div>
+            <div class="form-group">
+                <label for="documentType">Document Type</label>
+                @Html.DropDownListFor(m => m.DocumentType, new SelectList(ViewBag.DocumentTypes, "Value", "Text"), new { @class = "form-control" })
+            </div>
+            <div class="form-group">
+                <label for="placeRef">Place Reference</label>
+                @Html.TextBoxFor(m=>m.placeRef, new { @class = "form-control" })
+            </div>
+            <div class="form-group">
+                <label for="inspectionCompletionDate">Inspection Completion Date</label>
+                <input type="date" class="form-control" id="inspectionCompletionDate" />
+            </div>
+
+            <div class="form-group">
+                <label for="expiryDate">Expiry Date</label>
+                <input type="date" class="form-control" id="expiryDate" />
+            </div>
+            <div class="form-group">
+                <label for="Contractor">Contractor</label>
+                <input type="text" class="form-control" id="Contractor" />
+            </div>
+            <div class="form-group">
+                <label for="DocumentFile">Select</label>
+                <input type="file" class="form-control-file" id="DocFile" name="DocFile" />
+
+            </div>
+
+            <button type="Submit" class="btn btn-primary">Submit </button>
+            
+
+        }
+
+
+    </div>
+
+    <div class="col-sm-6">Preview</div>
+</div>
