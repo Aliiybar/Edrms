@@ -16,6 +16,7 @@ namespace tht.EDRMS.Business.SharePoint.Contracts
         string Upload(DocumentData documentData);
         bool UpdateDocument(DocumentData documentData);
         Task<List<DocumentData>> GetAllDocuments(string token);
-
+        Task<List<BuildingSafetyCertificateDocFields>> StagedDocList(string token);
+        Task<List<ContractorFields>> GetContractorsList(string token);
     }
 }

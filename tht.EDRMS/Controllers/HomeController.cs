@@ -19,16 +19,19 @@ namespace tht.EDRMS.Controllers
         private readonly ILogger<HomeController> _logger;
         private readonly IHostingEnvironment _hostingEnvironment;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IDashBoardService _dashBoardService;
         private readonly ISharePointManager _sharePointManager;
         private string token;
         public HomeController(ILogger<HomeController> logger, 
                                IHostingEnvironment hostingEnvironment,
                               IHttpContextAccessor httpContextAccessor,
+                              IDashBoardService dashBoardService,
                               ISharePointManager sharePointManager)
         {
             _logger = logger;
             _hostingEnvironment = hostingEnvironment;
             _httpContextAccessor = httpContextAccessor;
+            _dashBoardService = dashBoardService;
             _sharePointManager = sharePointManager;
         }
 
@@ -50,6 +53,12 @@ namespace tht.EDRMS.Controllers
             var result = await _sharePointManager.GetBusinessAreas(token);
             ViewBag.BusinessAreas = GetBusinessArea(result);
             ViewBag.DocumentTypes = GetDocumentTypes(result);
+            ViewBag.Contractors = await GetContractors();
+        }
+        [HttpPost]
+        public async Task<List<PropertyDetail>> PropertyLookup(string postCode)
+        {
+            return await _dashBoardService.PropertyLookup(postCode);
         }
         private IEnumerable<SelectListItem> GetBusinessArea(List<BusinessAreaDTO> data)
         {
@@ -61,6 +70,23 @@ namespace tht.EDRMS.Controllers
                 {
                     Value = element.Guid,
                     Text = element.Name
+                });
+            }
+
+            return selectList;
+        }
+        private  async Task<IEnumerable<SelectListItem>> GetContractors()
+        {
+            var selectList = new List<SelectListItem>();
+            token = _httpContextAccessor.HttpContext.Request.Cookies["token"];
+            var contractorList = await _sharePointManager.GetContractorsList(token);
+            selectList.Add(new SelectListItem { Disabled = true, Text = "Select a Contractor", Value = "" });
+            foreach (var element in contractorList)
+            {
+                selectList.Add(new SelectListItem
+                {
+                    Value = element.ContractorId,
+                    Text = element.ContractorName
                 });
             }
 
@@ -110,7 +136,7 @@ namespace tht.EDRMS.Controllers
                 string uploadFolder = Path.Combine(_hostingEnvironment.WebRootPath, "Uploads");
                 filePath = Path.Combine(uploadFolder, Path.GetFileName(model.DocFile.FileName));
                 // it doesn't release the file after copy happens
-        //        await model.DocFile.CopyToAsync(new FileStream(filePath, FileMode.Create));
+                await model.DocFile.CopyToAsync(new FileStream(filePath, FileMode.Create));
                 
             }
             return filePath;
@@ -127,15 +153,40 @@ namespace tht.EDRMS.Controllers
             Response.Cookies.Append(key, value, option);
         }
 
-        public IActionResult Privacy()
+        public async Task<IActionResult> ListDocuments()
         {
-            return View();
+            token = _httpContextAccessor.HttpContext.Request.Cookies["token"];
+           // var mm = await _dashBoardService.PropertyLookup("M33 3HY");
+ 
+
+            var result = await _sharePointManager.StagedDocList(token);
+
+            return View(result);
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        }
+
+        [HttpPost]
+        public ActionResult ViewPDF()
+        {
+            var originalUri = _httpContextAccessor.HttpContext.Request.Scheme + "://" + _httpContextAccessor.HttpContext.Request.Host + "/Uploads/Dummy.pdf";
+
+            LoadPdf(originalUri);
+
+            return RedirectToAction("Index");
+        }
+
+        private void LoadPdf(string pdfLink)
+        {
+            string embed = "<object data=\"{0}\" type=\"application/pdf\" width=\"100%\" height=\"500px\">";
+            embed += "If you are unable to view file, you can download from <a href = \"{0}\">here</a>";
+            embed += " or download <a target = \"_blank\" href = \"http://get.adobe.com/reader/\">Adobe PDF Reader</a> to view the file.";
+            embed += "</object>";
+            TempData["Embed"] = string.Format(embed, pdfLink);
         }
     }
 }

@@ -1,6 +1,6 @@
 ﻿@model PostModel
 @{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Upload Document";
 
 }
  
@@ -18,7 +18,19 @@
             </div>
             <div class="form-group">
                 <label for="placeRef">Place Reference</label>
-                @Html.TextBoxFor(m=>m.placeRef, new { @class = "form-control" })
+                <div class="input-group mb-3">
+                    <input type="text"
+                           id="placeRef"
+                           name="placeRef"
+                           class="form-control"
+                           placeholder="Place Ref"
+                           aria-label="Recipient's username"
+                           aria-describedby="basic-addon2">
+                    <div class="input-group-append">
+                        <button class="btn btn-outline-secondary" type="button" data-toggle="modal" data-target="#placeRefModal">Lookup</button>
+                    </div>
+                </div>
+
             </div>
             <div class="form-group">
                 <label for="inspectionCompletionDate">Inspection Completion Date</label>
@@ -31,21 +43,115 @@
             </div>
             <div class="form-group">
                 <label for="Contractor">Contractor</label>
-                <input type="text" class="form-control" id="Contractor" />
+                @Html.DropDownListFor(m => m.DocumentType, new SelectList(ViewBag.Contractors, "Value", "Text"), new { @class = "form-control" })
+
             </div>
             <div class="form-group">
-                <label for="DocumentFile">Select</label>
-                <input type="file" class="form-control-file" id="DocFile" name="DocFile" />
-
+                <label for="DocFile">Select Document</label>
+                <div class="custom-file">
+                    <input type="file" class="custom-file-input" id="DocFile" name="DocFile">
+                    <label class="custom-file-label" for="customFile">Choose file</label>
+                </div>
             </div>
+            <!-- MODAL PLACE REF LOOKUP -->
+            <div class="modal fade"
+                 id="placeRefModal"
+                 tabindex="-1"
+                 role="dialog"
+                 aria-labelledby="placeRefModalLabel"
+                 aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="placeRefModalLabel">Search Place Reference By Postcode</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="placeRef">Post Code</label>
+                                <div class="input-group mb-3">
+                                    <input type="text"
+                                           id="postcode"
+                                           name="postcode"
+                                           class="form-control"
+                                           placeholder="Postcode"
+                                           aria-describedby="basic-addon2">
+                                    <div class="input-group-append">
+                                        <button class="btn btn-primary" type="button" onclick="Lookup()">Search</button>
+                                    </div>
+                                </div>
+                                <div id="resultContainer"></div>
 
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END MODAL PLACE REF LOOKUP -->
             <button type="Submit" class="btn btn-primary">Submit </button>
-            
+            <button type="reset" class="btn btn-warning" value="Reset">Reset</button>
 
+            @section scripts {
+                <script>
+                    $('#DocFile').on('change', function () {
+                        var fileName = $(this).val().replace('C:\\fakepath\\', " ")
+                        $(this).next('.custom-file-label').html(fileName);
+                    })
+
+                    function Lookup() {
+                        console.log("Postcode : ", $("#postcode").val());
+                        $.ajax({
+                            type: "POST",
+                            url: "@Url.Action("PropertyLookup")",
+                            data: { postCode: $("#postcode").val()},
+                            dataType: "json",
+                            success: function (msg) {
+                                console.log(msg);
+                                PlaceRefTable(msg);
+                            },
+                            error: function (req, status, error) {
+                                console.log(msg);
+                            }
+                        });
+                    }
+                    function PlaceRefTable(data) {
+                        var table = $('<table></table>').addClass('table');
+                        console.log("DATA : ", data.length)
+                        for (var i = 0; i < data.length; i++) {
+                            row = $('<tr></tr>');
+                            row.append($('<td></td>').append('<a onclick=\"test(\'' + data[i]["placeRef"] + '\')">' + data[i]["placeRef"] + '</a>').addClass('btn btn-link'));  //   .text(data[i]["placeRef"]));
+                            row.append($('<td></td>').text(data[i]["address"]));
+                            table.append(row);
+                        }
+                        $('#resultContainer').append(table);
+                    }
+
+                    function test(param) {
+                        $("#placeRef")[0].value = param;
+                        $('#placeRefModal').modal('hide');
+                    }
+                </script>
+            }
         }
 
 
     </div>
 
-    <div class="col-sm-6">Preview</div>
+    <div class="col-sm-6">Preview
+        <div id="pdf">
+
+            @using (Html.BeginForm("ViewPDF", "Home", FormMethod.Post))
+            {
+                <button type="submit">view</button>
+                <hr />
+                @Html.Raw(TempData["Embed"])
+            }
+
+        </div>
+    </div>
 </div>

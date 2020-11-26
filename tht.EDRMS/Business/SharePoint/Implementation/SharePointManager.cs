@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using System.IO;
 using Microsoft.SharePoint.Client;
 using Microsoft.AspNetCore.Hosting;
-using tht.EDRMS.Business.SharePoint.Contracts;
 using tht.EDRMS.Models;
 
 namespace tht.EDRMS.Business.SharePoint.Implementation
@@ -123,7 +122,46 @@ namespace tht.EDRMS.Business.SharePoint.Implementation
             return documentFields;
         }
 
+        public async Task<List<BuildingSafetyCertificateDocFields>> StagedDocList(string token)
+        {
+            string url = _sharePointSettings.SharePointBaseUrl + "/propertyservices-uat/_api/web/lists/getbytitle('StagedDocuments')/items?$select=FileLeafRef,FileRef,*";
+            var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Add("Accept", "application/json;odata=verbose");
+            var res = client.GetAsync(url).Result;
+            var retVal = new List<BuildingSafetyCertificateDocFields>();
+            if (res.IsSuccessStatusCode)
+            {
+                var data = res.Content.ReadAsStringAsync().Result;
+                var listData = JsonConvert.DeserializeObject<BuildingSafetyCertificateDoc>(data).data.results;
 
+                //get taxonomy data
+                if (listData != null && listData.Any())
+                {
+                    foreach (var i in listData)
+                    {
+                        if (i.BusinessArea != null)
+                        {
+                            i.BusinessArea.Name = await GetTaxonomyTerm(i.BusinessArea.TermGuid, token);
+                        }
+
+                        if (i.DocumentType != null)
+                        {
+                            i.DocumentType.Name = await GetTaxonomyTerm(i.DocumentType.TermGuid, token);
+                        }
+
+                        if (i.Contractor != null)
+                        {
+                            i.Contractor.TermName = await GetTaxonomyTerm(i.Contractor.TermGuid, token);
+                        }
+
+                    }
+                }
+                retVal = listData;
+            }
+            return retVal;
+
+        }
         public async Task<List<DocumentData>> GetAllDocuments(string token)
         {
             var rowLimit = 100;
@@ -287,6 +325,26 @@ namespace tht.EDRMS.Business.SharePoint.Implementation
             return await client.GetByteArrayAsync(fileUrl);
 
         }
+
+        public async Task<List<ContractorFields>> GetContractorsList(string token)
+        {
+            string contractorTermSetId = "5e7f7b17-a35e-403f-a836-4de99216a492";
+            var listData =  new List<ContractorFields>();
+            string url = _sharePointSettings.SharePointBaseUrl + "/_api/web/lists/getbytitle('TaxonomyHiddenList')/items?$filter=IdForTermSet eq '" + contractorTermSetId + "'";
+            var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Add("Accept", "application/json;odata=verbose");
+           
+            var res = await client.GetAsync(url);
+            if (res.IsSuccessStatusCode)
+            {
+                var data = res.Content.ReadAsStringAsync().Result;
+                 listData = JsonConvert.DeserializeObject<ContractorList>(data).data.results;
+            }
+            return listData;
+        }
+
+
         /// <summary>
         /// Converts sharepoint ConfigSettingsListFields to BusinessArea object
         /// to provide simple data

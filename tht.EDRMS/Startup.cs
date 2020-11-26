@@ -31,7 +31,7 @@ namespace tht.EDRMS
         private void ConfigureIoC(IServiceCollection services)
         {
             services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
-
+            services.AddTransient<IDashBoardService, DashBoardService>();
             services.AddTransient<ISharePointSettings, SharePointSettings>();
             services.AddTransient<ISharePointManager, SharepointManager>();
         }

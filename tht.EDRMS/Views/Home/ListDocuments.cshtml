@@ -1,0 +1,27 @@
+﻿@model List<BuildingSafetyCertificateDocFields>
+@{
+    ViewData["Title"] = "List Documents";
+
+}
+<table class="table">
+    <thead>
+        <tr>
+            <th scope="col">Id</th>
+            <th scope="col">File Name</th>
+            <th scope="col">Business Area</th>
+            <th scope="col">Document Type</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var i in Model)
+        {
+            <tr>
+                <th scope="row">@i.Id</th>
+                <td>@i.FileName</td>
+                <td>@i.BusinessArea?.Name</td>
+                <td>@i.DocumentType?.Name</td>
+            </tr>
+        }
+
+    </tbody>
+</table>
