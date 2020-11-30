@@ -9,6 +9,8 @@
         string Secret { get; }
         string TenantId { get; }
         string Library { get; }
-          string DashboardBaseUrl { get;  }
+        string DashboardBaseUrl { get;  }
+        string SharePointRoot { get; }
+        string DownloadFromPath { get; }
     }
 }

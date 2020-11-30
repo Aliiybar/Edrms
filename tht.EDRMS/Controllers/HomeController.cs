@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -20,18 +22,21 @@ namespace tht.EDRMS.Controllers
         private readonly IHostingEnvironment _hostingEnvironment;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IDashBoardService _dashBoardService;
+        private readonly ISharePointSettings _sharePointSettings;
         private readonly ISharePointManager _sharePointManager;
         private string token;
         public HomeController(ILogger<HomeController> logger, 
                                IHostingEnvironment hostingEnvironment,
                               IHttpContextAccessor httpContextAccessor,
                               IDashBoardService dashBoardService,
+                              ISharePointSettings sharePointSettings,
                               ISharePointManager sharePointManager)
         {
             _logger = logger;
             _hostingEnvironment = hostingEnvironment;
             _httpContextAccessor = httpContextAccessor;
             _dashBoardService = dashBoardService;
+            _sharePointSettings = sharePointSettings;
             _sharePointManager = sharePointManager;
         }
 
@@ -40,7 +45,122 @@ namespace tht.EDRMS.Controllers
             await PrepareIndexPage();
             return View();
         }
+        [HttpPost]
+        public async Task<IActionResult> Index(PostModel model)
+        {
+            string filePath = "";
+            filePath = await Upload(model);
+            //-------------------
+            token = _httpContextAccessor.HttpContext.Request.Cookies["token"];
+            var docTypes = _sharePointManager.GetDocumentTypeMetaData("BuildingSafetyCertificate", token);
 
+            var documentData = new DocumentData();
+            documentData.BusinessAreaId = model.BusinessArea;
+            // documentData. = model.DocumentType;
+            documentData.ContentTypeId = docTypes.Result.First().ContentTypeId;
+            documentData.FilePath = filePath;
+            documentData.MetaDatas = new List<MetaData>();
+            if (model.DocumentType != null)
+                documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "DocumentType", Value = model.DocumentType });
+
+            if (model.placeRef != null)
+               documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "PlaceRef", Value = model.placeRef });
+         
+            if (model.expiryDate != null)
+                documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "ExpiryDate", Value = model.expiryDate });
+
+            if (model.inspectionCompletionDate != null)
+                documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "InspectionCompletionDate", Value = model.inspectionCompletionDate });
+
+            if (model.Contractor != null)
+                documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "Contractor", Value = model.Contractor });
+
+
+            documentData.Token = token;
+            var result = _sharePointManager.Upload(documentData);
+
+            await PrepareIndexPage();
+            // Delete the the upload folder 
+            // Redirect page to update with the document id
+            return RedirectToAction("ListDocuments");
+        }
+
+        [HttpGet("DownloadFile")]
+        public IActionResult DownloadFile(string fileName, string fileType)
+        {
+            try
+            {
+                token = _httpContextAccessor.HttpContext.Request.Cookies["token"];
+                byte[] res;
+                using (var client = new HttpClient())
+                {
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                    var requestUrl = String.Format("{0}{1}_api/web/GetFileByServerRelativeUrl('{2}/{3}')/$value", _sharePointSettings.SharePointBaseUrl, _sharePointSettings.Library, _sharePointSettings.DownloadFromPath, fileName);
+                    res = client.GetByteArrayAsync(requestUrl).Result;
+
+                }
+                var fType = (fileType == "docx") ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/pdf";
+                return new FileContentResult(res, fType);
+            }
+            catch (Exception)
+            {
+
+                return null;
+            }
+           
+        }
+
+        [Route("Update/{Id}")]
+        public async Task<IActionResult> Update(int Id)
+        {
+            
+            return View(await PrepareUpdatePage(Id));
+        }
+     
+        [HttpPost]
+        [Route("Update/{Id}")]
+        public async Task<IActionResult> Update(int Id, PostModel model)
+        {
+            var m = model;
+            try
+            {
+                 token = _httpContextAccessor.HttpContext.Request.Cookies["token"];
+                var documentData = new DocumentData();
+                documentData.DocumentId = model.DocumentId;
+                documentData.BusinessAreaId = model.BusinessArea;
+                documentData.Token = token;
+                documentData.MetaDatas = new List<MetaData>();
+                if(model.expiryDate != null )
+                    documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "ValidToDate", Value = model.expiryDate });
+
+                if (model.DocumentType != null)
+                    documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "DocumentType", Value = model.DocumentType });
+
+                if (model.Contractor != null)
+                    documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "Contractor", Value = model.Contractor });
+
+                if (model.inspectionCompletionDate != null)
+                    documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "InspectionCompletionDate", Value = model.inspectionCompletionDate });
+
+                if (model.placeRef != null)
+                    documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "PlaceRef", Value = model.placeRef });
+
+
+                if (model.Final != null && model.Final == true)
+                {
+                    documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "DocumentStatus", Value = "Complete" });
+                }
+                _sharePointManager.UpdateDocument(documentData);
+
+                
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                
+            }
+            return RedirectToAction("ListDocuments");  //View(await PrepareUpdatePage((int) model.DocumentId));
+        }
         private async Task PrepareIndexPage()
         {
             token = _httpContextAccessor.HttpContext.Request.Cookies["token"];
@@ -55,6 +175,44 @@ namespace tht.EDRMS.Controllers
             ViewBag.DocumentTypes = GetDocumentTypes(result);
             ViewBag.Contractors = await GetContractors();
         }
+        private async Task<PostModel> PrepareUpdatePage(int Id)
+        {
+            token = _httpContextAccessor.HttpContext.Request.Cookies["token"];
+            await PrepareIndexPage();
+            var model = await _sharePointManager.GetDocument(token, Id);
+            var postModel = new PostModel();
+            postModel.Token = token;
+            if (model != null)
+            {
+                postModel.BusinessArea = model.BusinessAreaId ?? "";
+      //          postModel.Contractor = model.MetaDatas.FirstOrDefault(t => t.EntityPropertyName == "Contractor").Value;
+                postModel.DocumentId = model.DocumentId;
+                postModel.FilePath =  model.FilePath;
+                postModel.FileName = model.FileName;
+                // LoadPdf(_sharePointSettings.SharePointRoot + model.FilePath);
+              //  _sharePointManager.DownloadPdf(_sharePointSettings.SharePointRoot + model.FilePath);
+
+                if (model.MetaDatas.First(k => k.EntityPropertyName == "InspectionCompletionDate").Value != null)
+                    postModel.inspectionCompletionDate = model.MetaDatas.First(k => k.EntityPropertyName == "InspectionCompletionDate").Value;
+
+                if (model.MetaDatas.First(k => k.EntityPropertyName == "ValidToDate").Value != null)
+                    postModel.expiryDate = model.MetaDatas.First(k => k.EntityPropertyName == "ValidToDate").Value;
+
+                if (model.MetaDatas.First(k => k.EntityPropertyName == "DocumentType").Value != null)
+                    postModel.DocumentType = model.MetaDatas.First(k => k.EntityPropertyName == "DocumentType").Value;
+
+                if (model.MetaDatas.First(k => k.EntityPropertyName == "Contractor").Value != null)
+                    postModel.Contractor = model.MetaDatas.First(k => k.EntityPropertyName == "Contractor").Value;
+                if (model.MetaDatas.First(k => k.EntityPropertyName == "PlaceRef").Value != null)
+                    postModel.placeRef = model.MetaDatas.First(k => k.EntityPropertyName == "PlaceRef").Value;
+
+
+            }
+            return postModel;
+        }
+
+
+
         [HttpPost]
         public async Task<List<PropertyDetail>> PropertyLookup(string postCode)
         {
@@ -96,37 +254,19 @@ namespace tht.EDRMS.Controllers
         {
             var selectList = new List<SelectListItem>();
             selectList.Add(new SelectListItem { Disabled = true, Text = "Select a Document Type", Value = "" });
+
             foreach (var element in data.First().DocumentTypes)
             {
                 selectList.Add(new SelectListItem
                 {
-                    Value = element.DocumentType,
+                    Value = element.DocumentTypeGuid,
                     Text = element.DocumentType
                 });
             }
 
             return selectList;
         }
-        [HttpPost]
-        public async Task<IActionResult> Index(PostModel model)
-        {
-            string filePath = "";
-            filePath = await Upload(model);
-            //-------------------
-            token = _httpContextAccessor.HttpContext.Request.Cookies["token"];
-            var docTypes = _sharePointManager.GetDocumentTypeMetaData("BuildingSafetyCertificate", token);
-
-            var documentData = new DocumentData();
-            documentData.BusinessAreaId = model.BusinessArea;
-           // documentData. = model.DocumentType;
-            documentData.ContentTypeId = docTypes.Result.First().ContentTypeId;
-            documentData.FilePath = filePath;
-            documentData.Token = token;
-            var result = _sharePointManager.Upload(documentData);
-
-            await PrepareIndexPage();
-            return View();
-        }
+       
 
         private async Task<string> Upload(PostModel model)
         {
@@ -135,12 +275,15 @@ namespace tht.EDRMS.Controllers
             {
                 string uploadFolder = Path.Combine(_hostingEnvironment.WebRootPath, "Uploads");
                 filePath = Path.Combine(uploadFolder, Path.GetFileName(model.DocFile.FileName));
-                // it doesn't release the file after copy happens
-                await model.DocFile.CopyToAsync(new FileStream(filePath, FileMode.Create));
-                
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await model.DocFile.CopyToAsync(stream);
+                }
             }
             return filePath;
         }
+
+ 
         public void Set(string key, string value, int? expireTime)
         {
             CookieOptions option = new CookieOptions();
@@ -170,23 +313,5 @@ namespace tht.EDRMS.Controllers
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
 
-        [HttpPost]
-        public ActionResult ViewPDF()
-        {
-            var originalUri = _httpContextAccessor.HttpContext.Request.Scheme + "://" + _httpContextAccessor.HttpContext.Request.Host + "/Uploads/Dummy.pdf";
-
-            LoadPdf(originalUri);
-
-            return RedirectToAction("Index");
-        }
-
-        private void LoadPdf(string pdfLink)
-        {
-            string embed = "<object data=\"{0}\" type=\"application/pdf\" width=\"100%\" height=\"500px\">";
-            embed += "If you are unable to view file, you can download from <a href = \"{0}\">here</a>";
-            embed += " or download <a target = \"_blank\" href = \"http://get.adobe.com/reader/\">Adobe PDF Reader</a> to view the file.";
-            embed += "</object>";
-            TempData["Embed"] = string.Format(embed, pdfLink);
-        }
     }
 }

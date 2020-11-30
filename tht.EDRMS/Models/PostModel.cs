@@ -18,6 +18,12 @@ namespace tht.EDRMS.Models
         public string Contractor { get; set; }
         public IFormFile DocFile { get; set; }
 
+        public int? DocumentId { get; set; }
+        public string ContetnTypeId { get; set; }
+        public string FilePath { get; set; }
+        public string FileName { get; set; }
+        public bool? Final { get; set; }
+        public string Token { get; set; }
     }
      
 }

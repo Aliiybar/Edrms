@@ -10,6 +10,7 @@ using System.IO;
 using Microsoft.SharePoint.Client;
 using Microsoft.AspNetCore.Hosting;
 using tht.EDRMS.Models;
+using Microsoft.SharePoint.Client.Taxonomy;
 
 namespace tht.EDRMS.Business.SharePoint.Implementation
 {
@@ -241,10 +242,18 @@ namespace tht.EDRMS.Business.SharePoint.Implementation
                         ctx.Load(myListItem);
                         ctx.ExecuteQuery();
 
-                            foreach (var item in documentData.MetaDatas)
+                        foreach (var item in documentData.MetaDatas)
+                        {
+                            if(item.EntityPropertyName == "BusinessArea" || item.EntityPropertyName == "DocumentType" || item.EntityPropertyName == "Contractor")
+                            {
+                                UpdateTaxonomyField(ctx, myLib, myListItem, item.EntityPropertyName,item.Value);
+                            }
+                            else
                             {
                                 myListItem[item.EntityPropertyName] = item.Value;
                             }
+                                
+                        }
 
                             myListItem.Update();
                         ctx.ExecuteQuery();
@@ -259,6 +268,72 @@ namespace tht.EDRMS.Business.SharePoint.Implementation
             return false;
         }
 
+ 
+
+        public async Task<DocumentData> GetDocument(string token, int documentId)
+        {
+    
+            try
+            {
+                using (ClientContext ctx = GetClientContext(token))
+                {
+                    Web myWeb = ctx.Web;
+                    List myLib = myWeb.Lists.GetByTitle(libName);
+                    ListItem myListItem = myLib.GetItemById (documentId);
+
+                    ctx.Load(myListItem);
+                    await ctx.ExecuteQueryAsync ();
+                    var documentData = new DocumentData();
+                    if (myListItem["BusinessArea"] != null)
+                    {
+                        var businessArea = (TaxonomyFieldValue)myListItem["BusinessArea"];
+                        //   var businessArea = (Dictionary<string, Dictionary<string, string>>)myListItem["BusinessArea"];
+                        if (businessArea != null)
+                        {
+                            documentData.BusinessAreaId = businessArea.TermGuid.ToString();
+                            documentData.BusinessAreaName = businessArea.Label.ToString();
+                        }
+                    }
+                    documentData.ContentTypeId = myListItem["ContentTypeId"]?.ToString();
+                    documentData.FilePath = myListItem["FileRef"]?.ToString();
+                    documentData.FileName = myListItem["FileLeafRef"]?.ToString();
+                    documentData.DocumentStatus = myListItem["DocumentStatus"]?.ToString();
+                    documentData.DocumentId = documentId;
+                    documentData.MetaDatas = new List<MetaData>();
+                    documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "PlaceRef", Value = myListItem["PlaceRef"]?.ToString() });
+                    if (myListItem["Contractor"] != null)
+                    {
+                        var contractor = (TaxonomyFieldValue)myListItem["Contractor"];
+                        if (contractor != null)
+                        {
+                            documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "Contractor", Value = contractor.TermGuid.ToString() });
+
+                        }
+                    }
+                    if (myListItem["DocumentType"] != null)
+                    {
+                        var documentType = (TaxonomyFieldValue)myListItem["DocumentType"];
+                        if (documentType != null)
+                        {
+                            documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "DocumentType", Value = documentType.TermGuid.ToString() });
+                        }
+                    }
+                  //  documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "DocumentType", Value = myListItem["DocumentType"]?.ToString() });
+                    documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "InspectionCompletionDate", Value = myListItem["InspectionCompletionDate"]?.ToString() });
+                    documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "ValidToDate", Value = myListItem["ValidToDate"]?.ToString() });
+
+                    return documentData;
+                         
+               
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    return null;
+                }
+          
+        }
 
         public string Upload(DocumentData documentData)
         {
@@ -299,7 +374,23 @@ namespace tht.EDRMS.Business.SharePoint.Implementation
                         {
                             foreach (var item in documentData.MetaDatas)
                             {
-                                uploadedFileRef.ListItemAllFields[item.EntityPropertyName] = item.Value;
+                                if((item.EntityPropertyName == "ExpiryDate" || item.EntityPropertyName == "InspectionCompletionDate")  && item.Value != null)
+                                {
+                                    if(item.EntityPropertyName == "ExpiryDate")
+                                    {
+                                        uploadedFileRef.ListItemAllFields["ValidToDate"] = Convert.ToDateTime(item.Value);
+                                    }
+                                    else
+                                    {
+                                        uploadedFileRef.ListItemAllFields[item.EntityPropertyName] = Convert.ToDateTime(item.Value);
+                                    }
+                               
+                                }
+                                else
+                                {
+                                    uploadedFileRef.ListItemAllFields[item.EntityPropertyName] = item.Value;
+                                }
+                             
                             }
                         }
                      
@@ -325,6 +416,7 @@ namespace tht.EDRMS.Business.SharePoint.Implementation
             return await client.GetByteArrayAsync(fileUrl);
 
         }
+
 
         public async Task<List<ContractorFields>> GetContractorsList(string token)
         {
@@ -360,16 +452,17 @@ namespace tht.EDRMS.Business.SharePoint.Implementation
             foreach (var businessArea in businessAreas)
             {
                 var documentTypes = new List<DocumentTypeDTO>();
-                var docTypes = sharepointData.Select( d => new DocumentTypeDTO
+                var docTypes = sharepointData.Select(d => new DocumentTypeDTO
                 {
                     Guid = d.DocumentType.TermGuid,
                     DocumentContentType = d.DocumentContentType,
-                    DocumentType =  GetTaxonomyTerm( d.DocumentType.TermGuid, token).Result ,
+                    DocumentType = GetTaxonomyTerm(d.DocumentType.TermGuid, token).Result,
+                    DocumentTypeGuid = d.DocumentType.TermGuid,
                     Title = d.Title,
                     ExpiryPeriod = d.ExpiryPeriod,
                     SiteUrl = d.SiteUrl,
                     StagePathUrl = d.StagePathUrl,
-                 
+
                     BusinessAreaGuid = d.BusinessArea.TermGuid
 
                 })
@@ -404,6 +497,7 @@ namespace tht.EDRMS.Business.SharePoint.Implementation
             return clientContext;
         }
 
+
         public async Task<string> GetTaxonomyTerm(string termId, string token)
         {
             string term = string.Empty;
@@ -420,6 +514,17 @@ namespace tht.EDRMS.Business.SharePoint.Implementation
             }
 
             return term;
+        }
+
+        private void UpdateTaxonomyField(ClientContext ctx, List myLib, ListItem myListItem, string fieldName, string fieldValue)
+        {
+            var field = myLib.Fields.GetByInternalNameOrTitle(fieldName);
+            var taxKeywordField = ctx.CastTo<TaxonomyField>(field);
+            TaxonomyFieldValue termValue = new TaxonomyFieldValue();
+            termValue.TermGuid = fieldValue;
+            taxKeywordField.SetFieldValueByValue(myListItem, termValue);
+
+            taxKeywordField.Update();
         }
     }
 }

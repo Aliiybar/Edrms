@@ -18,5 +18,7 @@ namespace tht.EDRMS.Business.SharePoint.Contracts
         Task<List<DocumentData>> GetAllDocuments(string token);
         Task<List<BuildingSafetyCertificateDocFields>> StagedDocList(string token);
         Task<List<ContractorFields>> GetContractorsList(string token);
+        Task<DocumentData> GetDocument(string token, int documentId);
+        
     }
 }

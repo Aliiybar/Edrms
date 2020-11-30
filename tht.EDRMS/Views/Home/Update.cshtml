@@ -1,13 +1,16 @@
 ﻿@model PostModel
 @{
-    ViewData["Title"] = "Upload Document";
+    ViewData["Title"] = "Update Document";
+    var expiryDate = Model.expiryDate != null ? Convert.ToDateTime(Model.expiryDate).ToString("yyyy-MM-dd") : null;
+    var inspectionDate = Model.inspectionCompletionDate != null ? Convert.ToDateTime(Model.inspectionCompletionDate).ToString("yyyy-MM-dd") : null;
 
 }
  
 <div class="row mb-3">
     <div class="col-sm-6">
-        @using (Html.BeginForm("Index", "Home", FormMethod.Post, new { enctype = "multipart/form-data" }))
+        @using (Html.BeginForm("Update", "Home", FormMethod.Post))
         {
+            @Html.HiddenFor(m => m.DocumentId)
             <div class="form-group">
                 <label for="businessArea">Business Area</label>
                 @Html.DropDownListFor(m => m.BusinessArea, new SelectList(ViewBag.BusinessAreas, "Value", "Text"), new { @class = "form-control" })
@@ -22,6 +25,7 @@
                     <input type="text"
                            id="placeRef"
                            name="placeRef"
+                           value="@(Model.placeRef)"
                            class="form-control"
                            placeholder="Place Ref"
                            aria-label="Recipient's username"
@@ -34,27 +38,25 @@
             </div>
             <div class="form-group">
                 <label for="inspectionCompletionDate">Inspection Completion Date</label>
-                <input type="date" class="form-control" id="inspectionCompletionDate" name="inspectionCompletionDate" />
+                <input type="date" class="form-control" id="inspectionCompletionDate" value="@(inspectionDate)" />
             </div>
 
             <div class="form-group">
-                <label for="expiryDate">Expiry Date</label>
-                <input type="date" class="form-control" id="expiryDate"  name="expiryDate"/>
-            </div>
+                <label for="expiryDate">
+                    Expiry Date </label>
+                     <input type="date" class="form-control" id="expiryDate" value="@(expiryDate)" />
+
+
+               </div>
             <div class="form-group">
                 <label for="Contractor">Contractor</label>
                 @Html.DropDownListFor(m => m.Contractor, new SelectList(ViewBag.Contractors, "Value", "Text"), new { @class = "form-control" })
 
             </div>
-    
-            <div class="form-group">
-                <label for="DocFile">Select Document</label>
-                <div class="custom-file">
-                    <input type="file" class="custom-file-input" id="DocFile" name="DocFile">
-                    <label class="custom-file-label" for="customFile">Choose file</label>
-                </div>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="Final" name="Final" value="true">
+                <label class="form-check-label" for="final">Save to Final Destination</label>
             </div>
-            
             <!-- MODAL PLACE REF LOOKUP -->
             <div class="modal fade"
                  id="placeRefModal"
@@ -95,6 +97,7 @@
                 </div>
             </div>
             <!-- END MODAL PLACE REF LOOKUP -->
+
             <button type="Submit" class="btn btn-primary">Submit </button>
             <button type="reset" class="btn btn-warning" value="Reset">Reset</button>
 
@@ -137,23 +140,23 @@
                         $("#placeRef")[0].value = param;
                         $('#placeRefModal').modal('hide');
                     }
+
+                    @*$(document).ready(function () {
+                        console.log('enter');
+                        $("#pdf").load("@Model.FilePath");
+                        console.log("exit")
+                    });*@
                 </script>
-            }
+}
         }
 
 
     </div>
 
-    @*<div class="col-sm-6">Preview
+    <div class="col-sm-6">
+        Preview
         <div id="pdf">
-
-            @using (Html.BeginForm("ViewPDF", "Home", FormMethod.Post))
-            {
-                <button type="submit">view</button>
-                <hr />
-                @Html.Raw(TempData["Embed"])
-            }
-
+            <embed src="https://localhost:44391/DownloadFile?fileName=@(Model.FileName)&fileType=pdf" type="application/pdf" height="600" width="400" style="z-index:-900">
         </div>
-    </div>*@
-</div>
+    </div>
+    </div>

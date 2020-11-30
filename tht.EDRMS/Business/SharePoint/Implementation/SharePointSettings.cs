@@ -18,6 +18,8 @@ namespace tht.EDRMS.Business.SharePoint.Implementation
             SharePointBaseUrl = _configuration["Sharepoint:sharePointBaseUrl"];
             Library = _configuration["Sharepoint:library"];
             DashboardBaseUrl = _configuration["Dashboard:baseAddress"];
+            SharePointRoot = _configuration["Sharepoint:sharePointRoot"];
+            DownloadFromPath = _configuration["Sharepoint:DownloadFromPath"];
         }
 
         public string ClientId { get; }
@@ -26,6 +28,8 @@ namespace tht.EDRMS.Business.SharePoint.Implementation
         public string ResourceId { get; }
         public string AccountBaseUrl { get; }
         public string SharePointBaseUrl { get; }
+        public string SharePointRoot { get; }
+        public string DownloadFromPath { get;  }
         public string Library { get; set; }
         public string DashboardBaseUrl { get;  }
     }

@@ -8,6 +8,7 @@ namespace tht.EDRMS.Models
         public string Title { get; set; }
         public string DocumentContentType { get; set; }
         public string DocumentType { get; set; }
+        public string DocumentTypeGuid { get; set; }
         public string BusinessArea { get; set; }
 
         public string SiteUrl { get; set; }
@@ -25,8 +26,9 @@ namespace tht.EDRMS.Models
         public string BusinessAreaId { get; set; }
         public string BusinessAreaName { get; set; } // if this class is used on it's own this can be handy
         public string FilePath { get; set; }
+        public string FileName { get; set; }
         public string Token { get; set; }
-
+        public string DocumentStatus { get; set; }
         public List<MetaData>  MetaDatas { get; set; }
 
     }

@@ -16,8 +16,8 @@
         @foreach (var i in Model)
         {
             <tr>
-                <th scope="row">@i.Id</th>
-                <td>@i.FileName</td>
+                <th scope="row">@Html.ActionLink(i.Id, "Update","Home", new { Id = i.Id })</th>
+                <td>@Html.ActionLink(i.FileName, "Update", "Home", new { Id = i.Id })</td>
                 <td>@i.BusinessArea?.Name</td>
                 <td>@i.DocumentType?.Name</td>
             </tr>
