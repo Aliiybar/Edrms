@@ -244,15 +244,18 @@ namespace tht.EDRMS.Business.SharePoint.Implementation
 
                         foreach (var item in documentData.MetaDatas)
                         {
-                            if(item.EntityPropertyName == "BusinessArea" || item.EntityPropertyName == "DocumentType" || item.EntityPropertyName == "Contractor")
+
+
+                            if (item.EntityPropertyName == "BusinessArea" || item.EntityPropertyName == "DocumentType" || item.EntityPropertyName == "Contractor")
                             {
-                                UpdateTaxonomyField(ctx, myLib, myListItem, item.EntityPropertyName,item.Value);
+
+                                UpdateTaxonomyField(ctx, myLib, myListItem, item.EntityPropertyName, item.Value, item.Label);
                             }
                             else
                             {
                                 myListItem[item.EntityPropertyName] = item.Value;
                             }
-                                
+
                         }
 
                             myListItem.Update();
@@ -422,6 +425,7 @@ namespace tht.EDRMS.Business.SharePoint.Implementation
         {
             string contractorTermSetId = "5e7f7b17-a35e-403f-a836-4de99216a492";
             var listData =  new List<ContractorFields>();
+          
             string url = _sharePointSettings.SharePointBaseUrl + "/_api/web/lists/getbytitle('TaxonomyHiddenList')/items?$filter=IdForTermSet eq '" + contractorTermSetId + "'";
             var client = new HttpClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -516,12 +520,14 @@ namespace tht.EDRMS.Business.SharePoint.Implementation
             return term;
         }
 
-        private void UpdateTaxonomyField(ClientContext ctx, List myLib, ListItem myListItem, string fieldName, string fieldValue)
+        private void UpdateTaxonomyField(ClientContext ctx, List myLib, ListItem myListItem, string fieldName, string fieldValue, string fieldLabel ="")
         {
             var field = myLib.Fields.GetByInternalNameOrTitle(fieldName);
             var taxKeywordField = ctx.CastTo<TaxonomyField>(field);
             TaxonomyFieldValue termValue = new TaxonomyFieldValue();
             termValue.TermGuid = fieldValue;
+            if(fieldLabel.Length > 1)
+                termValue.Label = fieldLabel;
             taxKeywordField.SetFieldValueByValue(myListItem, termValue);
 
             taxKeywordField.Update();

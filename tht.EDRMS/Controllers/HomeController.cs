@@ -137,7 +137,14 @@ namespace tht.EDRMS.Controllers
                     documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "DocumentType", Value = model.DocumentType });
 
                 if (model.Contractor != null)
-                    documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "Contractor", Value = model.Contractor });
+                    documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "Contractor", Value = model.Contractor,  });
+
+                if (model.BusinessArea != null)
+                {
+                    documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "BusinessArea", Value = model.BusinessArea, });
+                     
+                }
+
 
                 if (model.inspectionCompletionDate != null)
                     documentData.MetaDatas.Add(new MetaData() { EntityPropertyName = "InspectionCompletionDate", Value = model.inspectionCompletionDate });

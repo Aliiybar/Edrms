@@ -36,6 +36,7 @@ namespace tht.EDRMS.Models
     public class MetaData
     {
         public string EntityPropertyName { get; set; }
+        public string Label { get; set; }
         public string Value { get; set; }
     }
 }
